@@ -13,6 +13,9 @@
 *.done
 *.whl
 *.egg-info
+*.txt
+*.arpa
+*.klm
 build
 *output/
 
