@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import json
@@ -11,8 +12,10 @@ import wave
 import threading
 import tkinter
 
-sys.path.append('deploy/speech_client_gui')
+path = os.getcwd()
+sys.path.append(path)
 from utils import mk_if_not_exits
+
 
 class Recorder:
     def __init__(self, chunk=1024, channels=1, rate=16000):
@@ -24,15 +27,17 @@ class Recorder:
         self._running = False
         self._frames = []
 
-        self.savedir = 'deploy/speech_client_gui/'
-        self.init_output(self.savedir)
-        self.save_path = 'deploy/speech_server/audio_record/'
+        self.init_output()
         self.previous_path = "zh.wav"
 
-    def init_output(self, save_path):
-        mk_if_not_exits(save_path)
-        mk_if_not_exits(save_path + 'audio_record')
-        mk_if_not_exits(save_path + 'results')
+    def init_output(self):
+        self.path_file = os.path.join(path, 'files')
+        self.path_wavs = os.path.join(path, 'files', 'wavs')
+        self.path_results = os.path.join(path, 'files', 'results')
+
+        mk_if_not_exits(self.path_file)
+        mk_if_not_exits(self.path_wavs)
+        mk_if_not_exits(self.path_results)
 
     def UI(self):
         # 创建窗口，设置大小
@@ -40,30 +45,32 @@ class Recorder:
         window.title("语音识别客户端 Demo")
         window.geometry("600x400")
 
+        font = ("FangSong", 14)
+
         # 条码
-        b1 = tkinter.Button(window, text="扫描条码", font=("FangSong", 14), width=9, height=1)
+        b1 = tkinter.Button(window, text="扫描条码", font=font, width=9, height=1)
         b1.place(x=10, y=10, anchor="nw")
         # 条码输入框
         e1_text = tkinter.StringVar()
-        e1 = tkinter.Entry(window, bd=4, width=30, textvariable=e1_text)
+        e1 = tkinter.Entry(window, bd=4, width=30, textvariable=e1_text, font=font)
         e1.place(x=120, y=12)
         self.e1 = e1
         
         # 录音按钮
-        b1 = tkinter.Button(window, text="开始录音", font=("FangSong", 14), width=9, height=1, command=self.start)
+        b1 = tkinter.Button(window, text="开始录音", font=font, width=9, height=1, command=self.start)
         b1.place(x=10, y=50, anchor="nw")
         # 停止按钮
-        b2 = tkinter.Button(window, text="结束并保存", font=("FangSong", 14), width=10, height=1, command=self.stop_save)
+        b2 = tkinter.Button(window, text="结束并保存", font=font, width=10, height=1, command=self.stop_save)
         b2.place(x=110, y=50, anchor="nw")
         # 播放按钮
-        b4 = tkinter.Button(window, text="播放录音", font=("FangSong", 14), width=9, height=1, command=self.play)
+        b4 = tkinter.Button(window, text="播放录音", font=font, width=9, height=1, command=self.play)
         b4.place(x=250, y=50, anchor="nw")
         # http预测按钮
-        b5 = tkinter.Button(window, text="http预测", font=("FangSong", 14), width=9, height=1, command=self.http_predict_thread)
+        b5 = tkinter.Button(window, text="http预测", font=font, width=9, height=1, command=self.http_predict_thread)
         b5.place(x=380, y=50, anchor="nw")
 
         # 输出结果文本框
-        self.result_label = tkinter.Label(window, text="输出日志：", font=("FangSong", 14))
+        self.result_label = tkinter.Label(window, text="输出日志：", font=font)
         self.result_label.place(x=10, y=110)
         self.result_text = tkinter.Text(window, width=75, height=20)
         self.result_text.place(x=10, y=130)
@@ -88,26 +95,37 @@ class Recorder:
         """
         开始录音
         """
-        self._running = True
-        msg = self.get_current_time() + " 开始录音...\n"
-        self.result_text.insert('end', msg)
+        # 检查邮件条码号是否符合要求
+        post_id = self.e1.get()
+        res, err = check_post_id(str(post_id))
+        if not res:
+            self.result_text.insert('end', err)
 
-        self._frames = []
-        p = pyaudio.PyAudio()
+        else:
+            msg = f'识别到条码号: {post_id}\n'
+            self.result_text.insert('end', msg)
+            self.post_id_checked = post_id
 
-        stream = p.open(format=self.FORMAT,
-                        channels=self.CHANNELS,
-                        rate=self.RATE,
-                        input=True,
-                        frames_per_buffer=self.CHUNK)
+            self._running = True
+            msg = self.get_current_time() + " 开始录音...\n"
+            self.result_text.insert('end', msg)
 
-        while self._running:
-            data = stream.read(self.CHUNK)
-            self._frames.append(data)
+            self._frames = []
+            p = pyaudio.PyAudio()
 
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
+            stream = p.open(format=self.FORMAT,
+                            channels=self.CHANNELS,
+                            rate=self.RATE,
+                            input=True,
+                            frames_per_buffer=self.CHUNK)
+
+            while self._running:
+                data = stream.read(self.CHUNK)
+                self._frames.append(data)
+
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
 
 
     def stop_save(self):
@@ -115,8 +133,7 @@ class Recorder:
         停止录音,将录音文件保存至本地指定路径
         """
         # 保存路径及名称
-        wav_name = '%s.wav' % str(int(time.time()))
-        save = self.save_path + wav_name
+        savename = os.path.join(self.path_wavs, f'{self.post_id_checked}.wav')
 
         if self._running:
             # 录音结束
@@ -124,14 +141,14 @@ class Recorder:
 
             # 保存
             p = pyaudio.PyAudio()
-            wf = wave.open(save, 'wb')
+            wf = wave.open(savename, 'wb')
             wf.setnchannels(self.CHANNELS)
             wf.setsampwidth(p.get_sample_size(self.FORMAT))
             wf.setframerate(self.RATE)
             wf.writeframes(b''.join(self._frames))
             wf.close()
-            self.previous_path = save
-            msg = self.get_current_time() + " 录音结束,文件已保存至 {}\n".format(save)
+            self.previous_path = savename
+            msg = self.get_current_time() + f" 录音结束,保存至 {savename}\n"
             self.result_text.insert('end', msg)
 
         else:
@@ -162,9 +179,9 @@ class Recorder:
         """
         # 检查邮件条码号是否符合要求
         post_id = self.e1.get()
-        if not post_id.isdigit():
-            msg = f'条码号为空, 请先输入条码号: {post_id}'
-            self.result_text.insert('end', msg)
+        res, err = check_post_id(str(post_id))
+        if not res:
+            self.result_text.insert('end', err)
 
         else:
             server_ip="192.168.35.221"
@@ -224,13 +241,38 @@ class Recorder:
     def result_to_txt(self, id, result):
         """把识别结果保存为txt文件
         """
-        savename = f'{self.savedir}results/{id}.txt'
+        savename = os.path.join(self.path_results, f'{self.post_id_checked}.txt')
         with open(savename, 'w', encoding='utf-8') as f:
             f.write(id + ' ' + result)
         
         msg = self.get_current_time() + f'结果已保存至: {savename}'
         self.result_text.insert('end', msg)
 
+
+def check_post_id(post_id: str):
+    """检查post_id是否符合要求
+
+    检查顺序:
+        (1)是否为默认空值
+        (2)是否为纯数字
+        (3) TODO: 长度是否符合
+
+    Params
+        post_id (str)
+    Return
+        res (bool): 检查结果,通过检查为True
+        err (str) : 检查结果为False时的错误提示
+    """
+    if post_id =='':
+        res = False
+        err = '条码为空,请先输入条码\n'
+    elif not post_id.isdigit():
+        res = False
+        err = f'条码不为纯数字,请检查: {post_id}\n'
+    else:
+        res, err = True, 'None'
+
+    return res, err
 
 if __name__=='__main__':
     re = Recorder()
