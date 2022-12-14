@@ -1,6 +1,5 @@
 import os
 import sys
-import typing
 import json
 import requests
 
@@ -15,6 +14,7 @@ from PyQt5.QtWidgets import QLabel, QTextEdit, QLineEdit
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
 
 from utils import MyThread, mk_if_not_exits, list2txt
+from utils import get_date_time
 
 DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
 
@@ -23,6 +23,15 @@ class MainWindow(QWidget):
     def __init__(self) -> None:
         super().__init__()
 
+        # 初始化文件保存路径
+        savedir = os.path.join(DIR, 'files')
+        mk_if_not_exits(savedir)
+        date, time = get_date_time()
+        self.savepath = os.path.join(savedir, f'{date}')
+        mk_if_not_exits(self.savepath)
+        self.previous_file = None
+        self.current_row = 0
+
         # QT
         self.ld_tiaoma = None
         self.table_widget = None
@@ -30,11 +39,6 @@ class MainWindow(QWidget):
         # 录音参数
         self.recording = False
         self.record_frames = []
-
-        # 保存路径
-        self.savepath = os.path.join(DIR, 'files', '20221212')
-        self.previous_file = None
-        self.current_row = 0
 
         self.init_UI()
 

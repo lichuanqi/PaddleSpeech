@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import threading
 
 
@@ -39,3 +40,18 @@ def list2txt(data:list, savename:str) -> None:
                 f.write(data_write)
             else:
                 f.write(_data)
+
+
+def get_date_time():
+    """获取当前的日期和时间"""
+    dtn = datetime.now()
+
+    date = dtn.strftime(r'%Y-%m-%d')
+    time = dtn.strftime(r'%H%M%S')
+
+    return date, time
+
+
+if __name__ == '__main__':
+    date, time = get_date_time()
+    print(date)
