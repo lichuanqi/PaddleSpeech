@@ -3,7 +3,6 @@ import sys
 import typing
 import json
 import requests
-import threading
 
 import base64
 import pyaudio
@@ -13,10 +12,9 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication, QWidget, QDesktopWidget, QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QPushButton, QTableWidget, QTableWidgetItem
 from PyQt5.QtWidgets import QLabel, QTextEdit, QLineEdit
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QFileDialog
 
-from utils import MyThread
-
+from utils import MyThread, mk_if_not_exits, list2txt
 
 DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
 
@@ -42,9 +40,10 @@ class MainWindow(QWidget):
 
 
     def init_UI(self):
+        """UI界面"""
         # 设置窗体名称和尺寸
         self.setWindowTitle('语音录入系统')
-        self.resize(1100, 800)
+        self.resize(1450, 800)
 
         # 设置窗体位置
         qr = self.frameGeometry()
@@ -95,6 +94,7 @@ class MainWindow(QWidget):
         bt_table_inport = QPushButton('导入')
         bt_table_inport.clicked.connect(self.data_inport)
         bt_table_export = QPushButton('导出')
+        bt_table_export.clicked.connect(self.data_export_txt)
 
         table_header_layout.addWidget(table_label)
         table_header_layout.addStretch()
@@ -154,9 +154,8 @@ class MainWindow(QWidget):
             self.current_row = current_row
 
             # 开始录音
-            t = threading.Thread(target=self.start_record, )
-            t.start()
-
+            record_thread = MyThread(self.start_record)
+            record_thread.start()
         else:
             QMessageBox.warning(self, '错误', '条码格式问题')
 
@@ -214,8 +213,7 @@ class MainWindow(QWidget):
 
 
     def api_predict_threading(self):
-        """
-        """
+        """开辟一个线程调用接口预测"""
         if self.previous_file:
             text_threading = MyThread(request_api, (self.previous_file, ))
             text_threading.start()
@@ -239,14 +237,22 @@ class MainWindow(QWidget):
 
     def data_inport(self):
         """将txt文件中的数据导入到表格"""
-        data_path = os.path.join(DIR, 'files', '20221212', 'data_list.txt')
-        with open(data_path, mode='r', encoding='utf-8') as f:
-            data = f.readlines()
+        # 选择文件位置
+        data_path, data_type = QFileDialog.getOpenFileName(self,  "选取文件","./files", 
+            "Text Files (*.txt);;All Files (*)")
+
+        # 文件夹不存在停止
+        if not os.path.exists(data_path):
+            return  ''
+        else:
+            with open(data_path, mode='r', encoding='utf-8') as f:
+                data = f.readlines()
         
+        # 数据插入到表格
         table_count = self.table_widget.rowCount()
         for row in data:
             self.table_widget.insertRow(table_count)
-            code, address, typ, shape = row.strip().split(',')
+            code, address, typ, shape, filepath = row.strip().split(',')
 
             code_ = QTableWidgetItem(str(code))
             self.table_widget.setItem(table_count, 0, code_)
@@ -256,13 +262,23 @@ class MainWindow(QWidget):
             self.table_widget.setItem(table_count, 2, typ_)
             shape_ = QTableWidgetItem(str(shape))
             self.table_widget.setItem(table_count, 3, shape_)
-
+            filepath_ = QTableWidgetItem(str(filepath))
+            self.table_widget.setItem(table_count, 4, filepath_)
             table_count += 1
 
 
-    def data_export(self):
-        """将表格中的数据导出到文件"""
-        pass
+    def data_export_txt(self):
+        """将表格中的数据导出到txt文件"""
+        filepath, pathtype = QFileDialog.getSaveFileName(self, "文件保存", 
+                                "./data_list.txt" ,'txt(*.txt)')
+
+        # 文件夹不存在时停止
+        if not os.path.exists(filepath):
+            return  ''
+        else:
+            data = [['日期', '方案', '总相对投递范围', ' 均相对投递范围'],
+                ['20220808', 'A', '2.5', '0.6']]
+            list2txt(data, filepath)
 
 
 def check_post_id(post_id: str):
