@@ -18,6 +18,7 @@
 *.klm
 *.spec
 *.exe
+*.ui
 *output/
 /build/
 /disk/

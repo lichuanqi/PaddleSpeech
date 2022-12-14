@@ -29,6 +29,7 @@ class MainWindow(QWidget):
         date, time = get_date_time()
         self.savepath = os.path.join(savedir, f'{date}')
         mk_if_not_exits(self.savepath)
+        
         self.previous_file = None
         self.current_row = 0
 
@@ -47,7 +48,7 @@ class MainWindow(QWidget):
         """UI界面"""
         # 设置窗体名称和尺寸
         self.setWindowTitle('语音录入系统')
-        self.resize(1450, 800)
+        self.resize(1470, 800)
 
         # 设置窗体位置
         qr = self.frameGeometry()
@@ -194,9 +195,6 @@ class MainWindow(QWidget):
         savename = os.path.join(self.savepath, f'{self.post_id}.wav')
 
         if self.recording:
-            self.recording = False
-
-            # 录音结束
             p = pyaudio.PyAudio()
             wf = wave.open(savename, 'wb')
             wf.setnchannels(1)
@@ -211,6 +209,8 @@ class MainWindow(QWidget):
             self.table_widget.setItem(self.current_row, 4, item_filepath)
 
             self.previous_file = savename
+            self.recording = False
+            self.record_frames = []
 
         else:
             QMessageBox.warning(self, '错误', '请先开始录音')
@@ -273,16 +273,26 @@ class MainWindow(QWidget):
 
     def data_export_txt(self):
         """将表格中的数据导出到txt文件"""
-        filepath, pathtype = QFileDialog.getSaveFileName(self, "文件保存", 
-                                "./data_list.txt" ,'txt(*.txt)')
+        table_data = []
+        table_count = self.table_widget.rowCount()
+        print(table_count)
+        for row in range(table_count):
+            line = []
+            for col in range(5):
+                tab_item = self.table_widget.item(row, col)
+                if tab_item == None:
+                    line.append('')
+                else:
+                    line.append(str(tab_item.text()))
+            table_data.append(line)
 
-        # 文件夹不存在时停止
-        if not os.path.exists(filepath):
-            return  ''
+        # 数据为零
+        if len(table_data) >= 1:
+            filepath, pathtype = QFileDialog.getSaveFileName(self, "文件保存", 
+                    f"{self.savepath}/data_list.txt" ,'txt(*.txt)')
+            list2txt(table_data, filepath)
         else:
-            data = [['日期', '方案', '总相对投递范围', ' 均相对投递范围'],
-                ['20220808', 'A', '2.5', '0.6']]
-            list2txt(data, filepath)
+            QMessageBox.warning(self, '警告', '当前表格无数据')
 
 
 def check_post_id(post_id: str):
