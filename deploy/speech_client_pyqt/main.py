@@ -7,11 +7,11 @@ import base64
 import pyaudio
 import wave
 
-from PyQt5 import QtCore
-from PyQt5.QtWidgets import QApplication, QWidget, QDesktopWidget, QHBoxLayout, QVBoxLayout
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMainWindow, QWidget, QApplication, QDesktopWidget, QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QPushButton, QTableWidget, QTableWidgetItem
 from PyQt5.QtWidgets import QLabel, QTextEdit, QLineEdit
-from PyQt5.QtWidgets import QMessageBox, QFileDialog
+from PyQt5.QtWidgets import QMessageBox, QFileDialog, QStatusBar
 
 from utils import MyThread, mk_if_not_exits, list2txt
 from utils import get_date_time
@@ -19,17 +19,27 @@ from utils import get_date_time
 DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
-class MainWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
 
-        # 初始化文件保存路径
+        self.init_output_path()
+        self.init_params()
+        self.init_UI()
+        self.init_status_bar()
+
+
+    def init_output_path(self):
+        """初始化文件保存路径"""
         savedir = os.path.join(DIR, 'files')
         mk_if_not_exits(savedir)
         date, time = get_date_time()
         self.savepath = os.path.join(savedir, f'{date}')
         mk_if_not_exits(self.savepath)
-        
+
+
+    def init_params(self):
+        """初始化参数"""
         self.previous_file = None
         self.current_row = 0
 
@@ -41,31 +51,21 @@ class MainWindow(QWidget):
         self.recording = False
         self.record_frames = []
 
-        self.init_UI()
-
 
     def init_UI(self):
-        """UI界面"""
+        """初始化UI界面"""
         # 设置窗体名称和尺寸
         self.setWindowTitle('语音录入系统')
         self.resize(1470, 800)
+        # self.setWindowFlag()
 
         # 设置窗体位置
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
 
-        # 创建布局
+        # 创建总体横向布局
         layout = QVBoxLayout()
-        
-        # 顶部菜单
-        menue_layout = QHBoxLayout()
-        bt_luru = QPushButton('录入')
-        bt_setting = QPushButton('设置')
-        menue_layout.addWidget(bt_luru)
-        menue_layout.addWidget(bt_setting)
-        menue_layout.addStretch()
-        layout.addLayout(menue_layout)
 
         # 条码输入区域
         tiaoma_layout = QHBoxLayout()
@@ -77,7 +77,7 @@ class MainWindow(QWidget):
 
         self.ld_tiaoma = ld_tiaoma
 
-        # 语音控制
+        # 录音控制区域
         kongzhi_layout = QHBoxLayout()
         bt_start = QPushButton('开始')
         bt_start.clicked.connect(self.start_record_threading)
@@ -90,8 +90,9 @@ class MainWindow(QWidget):
         kongzhi_layout.addWidget(bt_predict)
         kongzhi_layout.addStretch()
         layout.addLayout(kongzhi_layout)
+        layout.addSpacing(10)
 
-        # 表格标题
+        # 表格区域
         table_header_layout = QHBoxLayout()
         table_label = QLabel('当前已录入条目:', self)
         bt_table_clear = QPushButton('清空')
@@ -108,13 +109,13 @@ class MainWindow(QWidget):
         table_header_layout.addWidget(bt_table_export)
         layout.addLayout(table_header_layout)
 
-        # 表格区域
+        # 表格内容
         table_layout =  QVBoxLayout()
         table_widget = QTableWidget(0, 5)
         table_layout.addWidget(table_widget)
         self.table_widget = table_widget
 
-        # 设置表格表头
+        # 表格标题
         headers = [
             {'field': 'code', 'text': '条码号', 'width': 300},
             {'field': 'address', 'text': '地址', 'width': 400},
@@ -128,6 +129,7 @@ class MainWindow(QWidget):
             table_widget.setHorizontalHeaderItem(i, item)
             table_widget.setColumnWidth(i, info['width'])
         layout.addLayout(table_layout)
+        layout.addSpacing(10)
 
         # 日志情况
         log_layout =  QVBoxLayout()
@@ -140,7 +142,17 @@ class MainWindow(QWidget):
         # 底部弹簧
         # layout.addStretch()
 
-        self.setLayout(layout)
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
+
+
+    def init_status_bar(self):
+        """初始化底部状态栏"""
+        self.status_bar = QStatusBar(self)
+        # 设置默认显示内容
+        self.status_bar.showMessage('初始化完成')
+        self.setStatusBar(self.status_bar)
 
 
     def start_record_threading(self):
@@ -161,6 +173,8 @@ class MainWindow(QWidget):
             # 开始录音
             record_thread = MyThread(self.start_record)
             record_thread.start()
+
+            self.status_bar.showMessage('正在录音')
         else:
             QMessageBox.warning(self, '错误', '条码格式问题')
 
@@ -207,6 +221,7 @@ class MainWindow(QWidget):
             filepath = savename.replace(DIR, '')
             item_filepath = QTableWidgetItem(str(filepath))
             self.table_widget.setItem(self.current_row, 4, item_filepath)
+            self.status_bar.showMessage(f'录音文件保存至: {filepath}')
 
             self.previous_file = savename
             self.recording = False
@@ -270,6 +285,8 @@ class MainWindow(QWidget):
             self.table_widget.setItem(table_count, 4, filepath_)
             table_count += 1
 
+        self.status_bar.showMessage(f'数据已导入')
+
 
     def data_export_txt(self):
         """将表格中的数据导出到txt文件"""
@@ -291,6 +308,8 @@ class MainWindow(QWidget):
             filepath, pathtype = QFileDialog.getSaveFileName(self, "文件保存", 
                     f"{self.savepath}/data_list.txt" ,'txt(*.txt)')
             list2txt(table_data, filepath)
+
+            self.status_bar.showMessage(f'数据导出至: {filepath}')
         else:
             QMessageBox.warning(self, '警告', '当前表格无数据')
 
@@ -365,6 +384,7 @@ def request_api(filepath, filedata=None):
 
 
 if __name__ == '__main__':
+    # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()

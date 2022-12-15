@@ -10,6 +10,7 @@ conda activate paddle
 pipreqs ./ --encoding=utf8
 
 # 进入打包化境安装最小依赖
+cd /d D:\CODE\PaddleSpeech\deploy\speech_client_pyqt
 conda activate app
 pip install -r requirements.txt 
 pip install pyinstaller
