@@ -13,8 +13,9 @@ from PyQt5.QtWidgets import QPushButton, QTableWidget, QTableWidgetItem
 from PyQt5.QtWidgets import QLabel, QTextEdit, QLineEdit
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QStatusBar
 
-from utils import MyThread, mk_if_not_exits, list2txt
-from utils import get_date_time
+from api import api_test_thread
+from util import MyThread
+from util import mk_if_not_exits, list2txt, get_date_time
 
 DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
 
@@ -27,6 +28,7 @@ class MainWindow(QMainWindow):
         self.init_params()
         self.init_UI()
         self.init_status_bar()
+        self.init_api_status()
 
 
     def init_output_path(self):
@@ -154,6 +156,16 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage('初始化完成')
         self.setStatusBar(self.status_bar)
 
+    
+    def init_api_status(self):
+        """初始化时测试api接口的连通状态"""
+        status, delay_time = api_test_thread()
+
+        if status:
+            self.status_bar.showMessage(f'接口连通, 延迟: {delay_time}ms')
+        else:
+            self.status_bar.showMessage(f'接口未连通')
+        
 
     def start_record_threading(self):
         """开辟一个线程开始录音"""
