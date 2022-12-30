@@ -8,12 +8,13 @@ import pyaudio
 import wave
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QWidget, QApplication, QDesktopWidget, QHBoxLayout, QVBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QWidget, QApplication, QDesktopWidget
+from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QPushButton, QTableWidget, QTableWidgetItem
 from PyQt5.QtWidgets import QLabel, QTextEdit, QLineEdit
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QStatusBar
 
-from api import api_test_thread
+from api import api_test_thread, api_request
 from util import MyThread
 from util import mk_if_not_exits, list2txt, get_date_time
 
@@ -246,7 +247,7 @@ class MainWindow(QMainWindow):
     def api_predict_threading(self):
         """开辟一个线程调用接口预测"""
         if self.previous_file:
-            text_threading = MyThread(request_api, (self.previous_file, ))
+            text_threading = MyThread(api_request, (self.previous_file, ))
             text_threading.start()
             text = text_threading.get_result()
 
@@ -304,7 +305,7 @@ class MainWindow(QMainWindow):
         """将表格中的数据导出到txt文件"""
         table_data = []
         table_count = self.table_widget.rowCount()
-        print(table_count)
+
         for row in range(table_count):
             line = []
             for col in range(5):
@@ -323,7 +324,7 @@ class MainWindow(QMainWindow):
 
             self.status_bar.showMessage(f'数据导出至: {filepath}')
         else:
-            QMessageBox.warning(self, '警告', '当前表格无数据')
+            QMessageBox.warning(self, '警告', '当前表格区域无数据可导出')
 
 
 def check_post_id(post_id: str):
@@ -336,6 +337,7 @@ def check_post_id(post_id: str):
 
     Params
         post_id (str)
+    
     Return
         res (bool): 检查结果,通过检查为True
         err (str) : 检查结果为False时的错误提示
@@ -350,49 +352,6 @@ def check_post_id(post_id: str):
         res, err = True, 'None'
 
     return res, err
-
-
-def request_api(filepath, filedata=None):
-    """根据音频文件的路径调用接口进行语音识别
-
-    Params
-        filepath: 音频文件路径
-        filedata: 音频文件数据
-    Return
-        text:
-    """
-    # 接口信息
-    server_ip = "192.168.35.221"
-    # server_ip = "127.0.0.1"
-    port = "8888"
-    sample_rate = 16000
-    lang = "zh_cn"
-    audio_format = "wav"
-    endpoint = "/paddlespeech/asr"
-
-    server_url = 'http://' + server_ip + ":" + str(port) + endpoint
-
-    if filepath:
-        with open(filepath, 'rb') as f:
-            base64_bytes = base64.b64encode(f.read())
-            audio = base64_bytes.decode('utf-8')
-        
-        data = {
-            "audio": audio,
-            "audio_format": audio_format,
-            "sample_rate": sample_rate,
-            "lang": lang,
-        }
-        
-        try:
-            response = requests.post(server_url, data=json.dumps(data))
-            data = json.loads(response.text)
-            res = data['result']['transcription']
-
-            return res
-
-        except requests.exceptions.ConnectionError as err:
-            return err
 
 
 if __name__ == '__main__':

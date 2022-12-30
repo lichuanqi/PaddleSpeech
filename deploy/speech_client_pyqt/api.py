@@ -6,7 +6,7 @@ import json
 import base64
 import requests
 
-from utils import MyThread
+from util import MyThread
 
 
 # 接口信息
