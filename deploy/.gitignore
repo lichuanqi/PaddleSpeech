@@ -19,6 +19,8 @@
 *.spec
 *.exe
 *.ui
+*.svg
+*.png
 *output/
 /build/
 /disk/
