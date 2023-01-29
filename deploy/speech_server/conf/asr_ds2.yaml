@@ -1,0 +1,47 @@
+# This is the parameter configuration file for PaddleSpeech Offline Serving.
+
+#################################################################################
+#                             SERVER SETTING                                    #
+#################################################################################
+host: 0.0.0.0
+port: 8888
+workers: 4
+
+# The task format in the engin_list is: <speech task>_<engine type>
+# task choices = ['asr_python', 'asr_inference', 'tts_python', 'tts_inference', 'cls_python', 'cls_inference', 'text_python', 'vector_python']
+protocol: 'http'
+# engine_list: ['asr_python', 'tts_python', 'cls_python', 'text_python', 'vector_python']
+engine_list: ['asr_python']
+
+#################################################################################
+#                                ENGINE CONFIG                                  #
+#################################################################################
+
+################################### ASR #########################################
+################### speech task: asr; engine_type: python #######################
+asr_python:
+    model: 'deepspeech2_online_wenetspeech'
+    lang: 'zh'
+    sample_rate: 16000
+    cfg_path: 'models/deepspeech2_online_wenetspeech_1.0.4/conf/deepspeech2_online.yaml'
+    ckpt_path: 'models/deepspeech2_online_wenetspeech_1.0.4/checkpoints/avg_10'
+    decode_method:
+    force_yes: True
+
+################### speech task: asr; engine_type: inference #######################
+asr_inference:
+    # model_type choices=['deepspeech2offline_aishell']
+    model_type: 'deepspeech2offline_aishell'
+    am_model: # the pdmodel file of am static model [optional]
+    am_params:  # the pdiparams file of am static model [optional]
+    lang: 'zh'
+    sample_rate: 16000
+    cfg_path: 
+    decode_method: 
+    force_yes: True
+
+    am_predictor_conf:
+        device:  # set 'gpu:id' or 'cpu'
+        switch_ir_optim: True
+        glog_info: False  # True -> print glog
+        summary: True  # False -> do not show predictor config

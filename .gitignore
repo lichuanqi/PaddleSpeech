@@ -18,6 +18,7 @@
 *.klm
 build
 *output/
+models/
 
 docs/build/
 docs/topic/ctc/warp-ctc/
