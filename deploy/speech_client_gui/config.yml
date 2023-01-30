@@ -1,7 +1,0 @@
-DEBUG: True
-
-
-server:
-  ip: "192.168.35.221"
-  port: "8888"
-  endpoint: "/paddlespeech/asr"
