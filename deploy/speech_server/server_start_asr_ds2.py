@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import io
+import os
 import sys
 import numpy as np
 import librosa
 import time
 import base64
 import warnings
+from loguru import logger
 
 from pathlib import Path
 from typing import Union
@@ -42,11 +44,40 @@ from paddlespeech.server.restful.response import ASRResponse
 from paddlespeech.server.restful.response import ErrorResponse
 from paddlespeech.server.utils.config import get_config
 
-warnings.filterwarnings("ignore")
 
-logger = Log(__name__).getlog()
+class Log():
+    """loguru的封装
+
+    Params
+        level : 日志等级
+        stdout: 是否输出日志到控制台
+        logdir: 日志保存路径
+        level : 日期等级
+    """
+    def __init__(self,
+                 level='DEBUG',
+                 stdout=True, 
+                 logdir=False) -> None:
+        self.logger = logger
+        self.logger.remove()
+
+        if stdout:
+            # 日志输出到控制台
+            self.logger.add(sys.stdout)
+
+        if logdir:
+            # 保存日志
+            logname = os.path.join(logdir, '{time}.log')
+            self.logger.add(logname, level=level,
+                rotation="100MB", encoding="utf-8",
+                enqueue=True, retention="100 days")
+
+    def get_logger(self):
+        return self.logger
+
 
 class DeepSpeech2Tester_hub():
+    """DeepSpeech2核心函数"""
     def __init__(self, config, ngpu):
         self.config = config
         self.ngpu = ngpu
@@ -105,7 +136,7 @@ class DeepSpeech2Tester_hub():
         decode_ts = time.time()
         audio_decode = base64.b64decode(self.audio_data)
         decode_te = time.time()
-        logger.info("base64 decode time %f s." % (decode_te - decode_ts))
+        logger.debug("base64 decode time %f s." % (decode_te - decode_ts))
 
         # 读取到内存
         audio_bytes = io.BytesIO(audio_decode)
@@ -115,28 +146,28 @@ class DeepSpeech2Tester_hub():
             audio = audio.mean(axis=1, dtype=np.int16)
         else:
             audio = audio[:, 0]
+            
         # pcm16 -> pcm 32
         audio = _pcm16to32(audio)
         audio = librosa.resample(
             audio,
             orig_sr=audio_sample_rate,
             target_sr=16000)
+        
         # pcm32 -> pcm 16
         audio = _pcm32to16(audio)
-
-        logger.info(f"audio shape: {audio.shape}")
+        logger.debug(f"audio shape: {audio.shape}")
 
         # fbank
         feat = self.preprocessing(audio, **self.preprocess_args)
-        logger.info(f"feat shape: {feat.shape}")
+        logger.debug(f"feat shape: {feat.shape}")
 
         audio_len = paddle.to_tensor(feat.shape[0])
         audio = paddle.to_tensor(feat, dtype='float32').unsqueeze(axis=0)
 
         result_transcripts = self.compute_result_transcripts(
             audio, audio_len, self.text_feature.vocab_list, self.config.decode)
-
-        logger.info("result_transcripts: " + result_transcripts[0])
+        logger.info("识别结果: " + result_transcripts[0])
 
         return result_transcripts[0]
 
@@ -206,6 +237,10 @@ def check(audio_file):
     assert (sample_rate == 16000)
     logger.info("The audio file format is right")
 
+
+warnings.filterwarnings("ignore")
+logger = Log(logdir='deploy/logs').get_logger()
+
 app = FastAPI(
     title="PaddleSpeech Serving API", 
     description="Api", 
@@ -220,7 +255,6 @@ app.add_middleware(
 
 # change yaml file here
 config_file = "deploy/speech_server/conf/ds2_predict.yaml"
-# config_file = "demos/speech_server/conf/u2_predict.yaml"
 server_config = get_config(config_file)
 
 # 加载模型
@@ -281,7 +315,7 @@ def asr(request_body: ASRRequest):
 if __name__ == "__main__":
 
     uvicorn.run(
-        "server_start_asr:app",
+        "server_start_asr_ds2:app",
         host=server_config.host,
         port=server_config.port,
         workers=server_config.workers)
