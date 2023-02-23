@@ -19,7 +19,6 @@ import librosa
 import time
 import base64
 import warnings
-from loguru import logger
 
 from pathlib import Path
 from typing import Union
@@ -44,36 +43,8 @@ from paddlespeech.server.restful.response import ASRResponse
 from paddlespeech.server.restful.response import ErrorResponse
 from paddlespeech.server.utils.config import get_config
 
-
-class Log():
-    """loguru的封装
-
-    Params
-        level : 日志等级
-        stdout: 是否输出日志到控制台
-        logdir: 日志保存路径
-        level : 日期等级
-    """
-    def __init__(self,
-                 level='DEBUG',
-                 stdout=True, 
-                 logdir=False) -> None:
-        self.logger = logger
-        self.logger.remove()
-
-        if stdout:
-            # 日志输出到控制台
-            self.logger.add(sys.stdout)
-
-        if logdir:
-            # 保存日志
-            logname = os.path.join(logdir, '{time}.log')
-            self.logger.add(logname, level=level,
-                rotation="100MB", encoding="utf-8",
-                enqueue=True, retention="100 days")
-
-    def get_logger(self):
-        return self.logger
+warnings.filterwarnings("ignore")
+logger = Log().getlog()
 
 
 class DeepSpeech2Tester_hub():
@@ -238,12 +209,8 @@ def check(audio_file):
     logger.info("The audio file format is right")
 
 
-warnings.filterwarnings("ignore")
-logger = Log(logdir='deploy/logs').get_logger()
-
 app = FastAPI(
-    title="PaddleSpeech Serving API", 
-    description="Api", 
+    title="Serving API", 
     version="v0.1")
 
 app.add_middleware(
@@ -258,25 +225,20 @@ config_file = "deploy/speech_server/conf/asr_ds2.yaml"
 server_config = get_config(config_file)
 
 # 加载模型
-t_init_s = time.time()
 cfg_path = server_config.asr_python.cfg_path
 ckpt_path = server_config.asr_python.ckpt_path
-
 config = CfgNode(new_allowed=True)
 config.merge_from_file(cfg_path)
 config.freeze()
 
-if 'ds2' in config_file:
-    logger.info('初始化，使用 deepspeech2 模型')
-    exp = DeepSpeech2Tester_hub(config, ngpu=1)
-    exp.setup_model()
-    exp.resume(ckpt_path)
-else:
-    logger.info('未检测到模型，初始化失败')
-    sys.exit()
-
+logger.info('语音识别deepspeech2模型初始化开始')
+t_init_s = time.time()
+exp = DeepSpeech2Tester_hub(config, ngpu=1)
+exp.setup_model()
+exp.resume(ckpt_path)
 t_init_e = time.time()
-logger.info('初始化完成，用时:{}'.format(t_init_e-t_init_s))
+logger.info('语音识别初始化完成，用时: %.3f'%(t_init_e-t_init_s))
+
 
 @app.get('/')
 def root():
@@ -296,7 +258,11 @@ def asr(request_body: ASRRequest):
     Returns:
         json: [description]
     """
+    logger.info('语音识别开始')
+    asr_ts = time.time()
     rsl = exp.run_wav_data(request_body.audio)
+    asr_te = time.time()
+    logger.info('语音识别完成, 用时: %.3f'%(asr_te-asr_ts))
 
     response = {
         "success": True,
@@ -313,9 +279,8 @@ def asr(request_body: ASRRequest):
 
 
 if __name__ == "__main__":
-
     uvicorn.run(
-        "server_start_asr_ds2:app",
+        app="server_start_asr_ds2:app",
         host=server_config.host,
         port=server_config.port,
         workers=server_config.workers)
