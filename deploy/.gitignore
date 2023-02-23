@@ -1,0 +1,12 @@
+*.trn
+*.pdz
+*.npy
+*.onnx
+*.arpa
+*.klm
+*.txt
+*.yaml
+
+text
+
+logs/
