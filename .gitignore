@@ -18,7 +18,14 @@
 *.klm
 build
 *output/
+<<<<<<< HEAD
 models/
+=======
+.history
+
+audio/dist/
+audio/fc_patch/
+>>>>>>> e8deb1d8c35d30ca2d27628805b6a34dd848c269
 
 docs/build/
 docs/topic/ctc/warp-ctc/
@@ -46,6 +53,7 @@ tools/python-soundfile/
 tools/onnx
 tools/onnxruntime
 tools/Paddle2ONNX
+tools/onnx-simplifier/
 
 speechx/fc_patch/
 
