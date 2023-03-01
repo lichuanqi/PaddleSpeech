@@ -284,7 +284,8 @@ def run_frontend(frontend: object,
                  merge_sentences: bool=False,
                  get_tone_ids: bool=False,
                  lang: str='zh',
-                 to_tensor: bool=True):
+                 to_tensor: bool=True,
+                 add_blank: bool=False):
     outs = dict()
     if lang == 'zh':
         input_ids = {}
@@ -300,7 +301,8 @@ def run_frontend(frontend: object,
                 text,
                 merge_sentences=merge_sentences,
                 get_tone_ids=get_tone_ids,
-                to_tensor=to_tensor)
+                to_tensor=to_tensor,
+                add_blank=add_blank)
         phone_ids = input_ids["phone_ids"]
         if get_tone_ids:
             tone_ids = input_ids["tone_ids"]
@@ -452,9 +454,19 @@ def am_to_static(am_inference,
     elif am_name == 'tacotron2':
         am_inference = jit.to_static(
             am_inference, input_spec=[InputSpec([-1], dtype=paddle.int64)])
-
-    paddle.jit.save(am_inference, os.path.join(inference_dir, am))
-    am_inference = paddle.jit.load(os.path.join(inference_dir, am))
+    elif am_name == 'vits':
+        if am_dataset in {"aishell3", "vctk"} and speaker_dict is not None:
+            am_inference = jit.to_static(
+                am_inference,
+                input_spec=[
+                    InputSpec([-1], dtype=paddle.int64),
+                    InputSpec([1], dtype=paddle.int64),
+                ])
+        else:
+            am_inference = jit.to_static(
+                am_inference, input_spec=[InputSpec([-1], dtype=paddle.int64)])
+    jit.save(am_inference, os.path.join(inference_dir, am))
+    am_inference = jit.load(os.path.join(inference_dir, am))
     return am_inference
 
 
@@ -465,8 +477,8 @@ def voc_to_static(voc_inference,
         voc_inference, input_spec=[
             InputSpec([-1, 80], dtype=paddle.float32),
         ])
-    paddle.jit.save(voc_inference, os.path.join(inference_dir, voc))
-    voc_inference = paddle.jit.load(os.path.join(inference_dir, voc))
+    jit.save(voc_inference, os.path.join(inference_dir, voc))
+    voc_inference = jit.load(os.path.join(inference_dir, voc))
     return voc_inference
 
 
@@ -566,15 +578,15 @@ def get_predictor(
     return predictor
 
 
-def get_am_output(
-        input: str,
-        am_predictor: paddle.nn.Layer,
-        am: str,
-        frontend: object,
-        lang: str='zh',
-        merge_sentences: bool=True,
-        speaker_dict: Optional[os.PathLike]=None,
-        spk_id: int=0, ):
+def get_am_output(input: str,
+                  am_predictor: paddle.nn.Layer,
+                  am: str,
+                  frontend: object,
+                  lang: str='zh',
+                  merge_sentences: bool=True,
+                  speaker_dict: Optional[os.PathLike]=None,
+                  spk_id: int=0,
+                  add_blank: bool=False):
     am_name = am[:am.rindex('_')]
     am_dataset = am[am.rindex('_') + 1:]
     am_input_names = am_predictor.get_input_names()
@@ -591,7 +603,8 @@ def get_am_output(
         text=input,
         merge_sentences=merge_sentences,
         get_tone_ids=get_tone_ids,
-        lang=lang)
+        lang=lang,
+        add_blank=add_blank, )
 
     if get_tone_ids:
         tone_ids = frontend_dict['tone_ids']
