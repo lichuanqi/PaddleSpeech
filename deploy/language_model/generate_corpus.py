@@ -1,15 +1,18 @@
-# 根据句子生成kenlm训练用的词料库
+"""
+根据句子生成kenlm训练用的词料库
 
-'''
 输入: text.txt
-    我爱中国
-输出: corpus_chars.txt
-    我 爱 中 国
-      corpus_words.txt
-    我 爱 中国
-'''
+        我爱中国
+        ...
 
-import os
+输出: corpus_chars.txt
+        (字粒度)我 爱 中 国
+                ...
+        (词粒度)我 爱 中国
+                ...
+"""
+import sys
+from pathlib import Path
 import string
 import jieba
 
@@ -90,18 +93,27 @@ def cut_words(strs:str):
     return strings_new
 
 
-def write_txt(txts, savepath):
+def write_txt(txts, savepath, mode='char'):
     '''
     将结果保存为txt文件
     txt: ['中 国 科 技 出 版 传 媒 股 份 有 限 公 司', '中 国 石 化 国 际 事 业 有 限 公 司 北 京 招 标 中 心']
     save_path: 保存地址
     '''
-    with open(savepath, 'w', encoding='UTF-8') as f:
+    savefile = Path(savepath).joinpath('address_corpus_%s.txt'%mode)
+    print('savefile: %s'%savefile)
+
+    with open(savefile, 'w', encoding='UTF-8') as f:
         for txts in txts:
             # 字粒度
-            # txts_cut = cut_chars(txts)
+            if mode == 'char':
+                txts_cut = cut_chars(txts)
+
             # 词粒度
-            txts_cut = cut_words(txts)
+            elif mode == 'word':
+                txts_cut = cut_words(txts)
+
+            else:
+                break
 
             f.write(txts_cut+'\n')
 
@@ -121,8 +133,8 @@ if __name__ == '__main__':
 
     fun_test()
 
-    text_path = 'demos/language_model/address_text.txt'
-    corpus_savepath = 'demos/language_model/address_corpus_words.txt'
+    text_path = 'deploy/language_model/20230506_jiyao/train_ngram.txt'
+    savepath = 'deploy/language_model/20230506_jiyao/'
 
     txts = read_txt(text_path)
-    write_txt(txts=txts, savepath=corpus_savepath)
+    write_txt(txts=txts, savepath=savepath, mode='char')
